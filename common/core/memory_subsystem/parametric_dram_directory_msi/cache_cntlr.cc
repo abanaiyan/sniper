@@ -44,6 +44,7 @@ char CStateString(CacheState::cstate_t cstate) {
       case CacheState::MODIFIED:          return 'M';
       case CacheState::EXCLUSIVE:         return 'E';
       case CacheState::OWNED:             return 'O';
+      case CacheState::DISABLED:          return 'D';  // ABM
       case CacheState::INVALID_COLD:      return '_';
       case CacheState::INVALID_EVICT:     return 'e';
       case CacheState::INVALID_COHERENCY: return 'c';

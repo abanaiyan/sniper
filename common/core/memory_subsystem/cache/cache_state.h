@@ -17,6 +17,7 @@ class CacheState
          EXCLUSIVE,
          OWNED,
          MODIFIED,
+		 DISABLED,		// ABM, disabled block due to a fault
          NUM_CSTATE_STATES,
          /* Below are special states, used only for reporting */
          INVALID_COLD = NUM_CSTATE_STATES,

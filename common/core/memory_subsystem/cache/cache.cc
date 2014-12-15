@@ -1,6 +1,8 @@
 #include "simulator.h"
 #include "cache.h"
 #include "log.h"
+#include "stats.h"
+#include "config.hpp"
 
 // Cache class
 // constructors/destructors
@@ -36,6 +38,24 @@ Cache::Cache(
    for (UInt32 i = 0; i < m_num_sets; i++)
       m_set_usage_hist[i] = 0;
    #endif
+
+
+   m_random = rng_seed(Timer::now()); 	// ABM
+   m_num_faults = 0; 		// ABM
+   // ABM
+   if (Sim()->getCfg()->getBool("fault_generation/enabled"))
+   {
+	   if(name == Sim()->getCfg()->getString("fault_generation/cache_type"))
+	   {
+		   printf("[SNIPER] Enabling fault generation for %s cache of core %d.\n", name.c_str(), core_id); fflush(stdout);
+		   // ABM: Fault map should be generated here
+		   generateFaultMaps();
+		   // ABM : Disable blocks that have more than AFB bits in current VDD.
+		   inspectFaultyCache();
+		   // ABM : Let's dump the cache fault status
+		   dumpCacheStatus(name, core_id);
+	   }
+   }
 }
 
 Cache::~Cache()
@@ -183,4 +203,86 @@ Cache::updateHits(Core::mem_op_t mem_op_type, UInt64 hits)
       m_num_accesses += hits;
       m_num_hits += hits;
    }
+}
+
+// ABM: Fault map should be generated here
+void
+Cache::generateFaultMaps()
+{
+	CacheBlockInfo* blk_info;
+	UInt64 bit_error_rate;
+	bool tmp_Faulty;
+
+	bit_error_rate = Sim()->getCfg()->getInt("fault_generation/bit_error_rate");
+
+	for (UInt32 i = 0; i < m_num_sets; i++)
+	{
+		for (UInt32 j = 0; j < m_associativity; j++)
+		{
+			blk_info = m_sets[i]->peekBlock(j);
+			tmp_Faulty = false;
+		    UInt64 outcome = 0;
+		    for (UInt32 k = 0; k < m_blocksize*8; k++) {
+		    	outcome = rng_next(m_random) % bit_error_rate;
+		        if (outcome == 1) {
+		                //e.g. if bitFaultRates[i] == 1e12, this should generate a random number between 0 and (1e12), inclusive.
+		                //the outcome is then true if the result was exactly one fixed value, say, 0.
+		        	tmp_Faulty = true;
+		        	break;
+		       }
+		    }
+		    blk_info->m_faulty = tmp_Faulty;
+		}
+	}
+
+}
+
+// ABM: Disable blocks that have more than AFB bits in current VDD.
+void
+Cache::inspectFaultyCache()
+{
+	CacheBlockInfo* blk_info;
+	UInt64 tmp_num_faults;
+
+	tmp_num_faults = 0;
+
+	for (UInt32 i = 0; i < m_num_sets; i++)
+	{
+		for (UInt32 j = 0; j < m_associativity; j++)
+		{
+			blk_info = m_sets[i]->peekBlock(j);
+			if (blk_info->m_faulty){
+				// We need to make a faulty block disabled, if number of faulty blocks is higher than available redundancy.
+				// if (tmp_num_faults > m_redundancy)
+				blk_info->setDisabled();
+				//blk_info->invalidate();
+				tmp_num_faults++;
+			}
+		}
+	}
+	m_num_faults = tmp_num_faults;
+}
+
+// ABM: Let's dump the cache fault status
+void
+Cache::dumpCacheStatus(String name, core_id_t core_id)
+{
+	CacheBlockInfo* blk_info;
+	CacheState::cstate_t blk_state;
+	UInt64 disabld_blk;
+
+	disabld_blk = 0;
+
+	for (UInt32 i = 0; i < m_num_sets; i++)
+	{
+		for (UInt32 j = 0; j < m_associativity; j++)
+		{
+			blk_info = m_sets[i]->peekBlock(j);
+			blk_state = blk_info->getCState();
+			if(blk_state == CacheState::DISABLED)
+				disabld_blk++;
+		}
+	}
+
+	printf("[SNIPER] %ld disabled blocks set for this cache.\n", disabld_blk); fflush(stdout);
 }

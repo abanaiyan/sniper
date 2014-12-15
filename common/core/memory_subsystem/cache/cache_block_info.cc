@@ -27,7 +27,9 @@ CacheBlockInfo::CacheBlockInfo(IntPtr tag, CacheState::cstate_t cstate, UInt64 o
    m_owner(0),
    m_used(0),
    m_options(options)
-{}
+{
+    m_faulty = false;  		// ABM : reset
+}
 
 CacheBlockInfo::~CacheBlockInfo()
 {}
@@ -88,3 +90,32 @@ CacheBlockInfo::updateUsage(BitsUsedType used)
    m_used |= used;                     // Update usage mask
    return new_bits_set;
 }
+
+/** ABM :
+	  * Generates faults for this block. This should only be called before execution begins.
+	  * Returns the faultMap code generated for this block.
+
+int
+CacheBlockInfo::generateFault(UInt64 ber, UInt32 block_size)
+{
+	bool tmp_isFaulty;
+	UInt64 tmp_rnd;
+
+    //compute the new faults on any so-far non-faulty cells
+	tmp_isFaulty = false;
+    unsigned long outcome = 0;
+    for (UInt32 j = 0; j < block_size*8; j++) {
+    	tmp_rnd = rng_next(m_random);
+    	outcome = tmp_rnd % ber;
+        if (outcome == 1) {
+                //e.g. if bitFaultRates[i] == 1e12, this should generate a random number between 0 and (1e12), inclusive.
+                //the outcome is then true if the result was exactly one fixed value, say, 0.
+        	tmp_isFaulty = true;
+        	LOG_PRINT_ERROR("Random number is: %ld, %d, %d\n", tmp_rnd, ber, tmp_rnd % ber);
+        	break;
+       }
+    }
+    isFaulty = tmp_isFaulty;
+
+    return 0;
+} */

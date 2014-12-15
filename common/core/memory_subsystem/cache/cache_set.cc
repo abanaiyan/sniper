@@ -105,7 +105,12 @@ CacheSet::insert(CacheBlockInfo* cache_block_info, Byte* fill_buff, bool* evicti
 
    assert(eviction != NULL);
 
-   if (m_cache_block_info_array[index]->isValid())
+   if (m_cache_block_info_array[index]->isDisabled()) // ABM
+	   printf("[SNIPER] Access to a disabled block in core!\n"); fflush(stdout);
+	   //	   LOG_PRINT_ERROR("DISABLED\n");
+
+   //if (m_cache_block_info_array[index]->isValid()
+   if (m_cache_block_info_array[index]->isValid() && !m_cache_block_info_array[index]->isDisabled()) // ABM
    {
       *eviction = true;
       // FIXME: This is a hack. I dont know if this is the best way to do

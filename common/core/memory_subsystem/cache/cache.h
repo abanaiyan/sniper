@@ -11,6 +11,8 @@
 #include "log.h"
 #include "core.h"
 #include "fault_injection.h"
+#include "rng.h"                    // ABM : for random number generator
+#include "timer.h"					// ABM
 
 // Define to enable the set usage histogram
 //#define ENABLE_SET_USAGE_HIST
@@ -68,6 +70,12 @@ class Cache : public CacheBase
 
       void enable() { m_enabled = true; }
       void disable() { m_enabled = false; }
+
+      UInt64 m_random; 		// ABM : random seed
+      UInt64 m_num_faults;  //ABM
+      void generateFaultMaps();  //ABM
+      void inspectFaultyCache(); //ABM
+      void dumpCacheStatus(String name, core_id_t core_id);    //ABM
 };
 
 template <class T>

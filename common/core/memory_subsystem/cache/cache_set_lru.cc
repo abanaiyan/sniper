@@ -27,13 +27,15 @@ CacheSetLRU::getReplacementIndex(CacheCntlr *cntlr)
    // First try to find an invalid block
    for (UInt32 i = 0; i < m_associativity; i++)
    {
-      if (!m_cache_block_info_array[i]->isValid())
+      //if (!m_cache_block_info_array[i]->isValid())
+      if (!m_cache_block_info_array[i]->isValid() && !m_cache_block_info_array[i]->isDisabled()) //ABM
       {
-         // Mark our newly-inserted line as most-recently used
-         moveToMRU(i);
-         return i;
+		 // Mark our newly-inserted line as most-recently used
+		 moveToMRU(i);
+		 return i;
       }
    }
+
 
    // Make m_num_attemps attempts at evicting the block at LRU position
    for(UInt8 attempt = 0; attempt < m_num_attempts; ++attempt)
@@ -42,7 +44,8 @@ CacheSetLRU::getReplacementIndex(CacheCntlr *cntlr)
       UInt8 max_bits = 0;
       for (UInt32 i = 0; i < m_associativity; i++)
       {
-         if (m_lru_bits[i] > max_bits && isValidReplacement(i))
+         //if (m_lru_bits[i] > max_bits && isValidReplacement(i))
+         if (m_lru_bits[i] > max_bits && isValidReplacement(i) && !m_cache_block_info_array[i]->isDisabled())  // ABM
          {
             index = i;
             max_bits = m_lru_bits[i];

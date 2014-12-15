@@ -36,7 +36,6 @@ class CacheSet
       Lock m_lock;
 
    public:
-
       CacheSet(CacheBase::cache_t cache_type,
             UInt32 associativity, UInt32 blocksize);
       virtual ~CacheSet();
@@ -60,6 +59,7 @@ class CacheSet
       virtual void updateReplacementIndex(UInt32) = 0;
 
       bool isValidReplacement(UInt32 index);
+
 };
 
 #endif /* CACHE_SET_H */
