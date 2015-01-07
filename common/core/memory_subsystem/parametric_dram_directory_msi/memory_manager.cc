@@ -259,6 +259,7 @@ MemoryManager::MemoryManager(Core* core,
          m_dram_directory_cntlr = new PrL1PrL2DramDirectoryMSI::DramDirectoryCntlr(getCore()->getId(),
                this,
                m_dram_controller_home_lookup,
+			   m_tag_directory_home_lookup,		// ABM
                m_nuca_cache,
                dram_directory_total_entries,
                dram_directory_associativity,

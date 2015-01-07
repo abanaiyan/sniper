@@ -13,6 +13,7 @@ const char* shmem_reason_names[] = {
    "nuca-bus",
    "nuca-queue",
    "nuca-data",
+   "nuca-ecc",	// ABM
    "dram-cache",
    "dram-cache-tags",
    "dram-cache-queue",

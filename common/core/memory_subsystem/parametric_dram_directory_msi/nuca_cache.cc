@@ -68,6 +68,7 @@ NucaCache::read(IntPtr address, Byte* data_buf, SubsecondTime now, ShmemPerf *pe
       m_cache->accessSingleLine(address, Cache::LOAD, data_buf, m_cache_block_size, now + latency, true);
 
       latency += accessDataArray(Cache::LOAD, now + latency, perf);
+
       hit_where = HitWhere::NUCA_CACHE;
    }
    else
@@ -93,6 +94,7 @@ NucaCache::write(IntPtr address, Byte* data_buf, bool& eviction, IntPtr& evict_a
       m_cache->accessSingleLine(address, Cache::STORE, data_buf, m_cache_block_size, now + latency, true);
 
       latency += accessDataArray(Cache::STORE, now + latency, NULL);
+
       hit_where = HitWhere::NUCA_CACHE;
    }
    else
@@ -141,6 +143,9 @@ NucaCache::accessDataArray(Cache::access_t access, SubsecondTime t_start, ShmemP
    }
 
    perf->updateTime(t_start + queue_delay + m_data_access_time.getLatency(), ShmemPerf::NUCA_DATA);
+
+   // ABM: add ECC latency to nuca access latency
+   //perf->updateTime(t_start + queue_delay + m_data_access_time.getLatency() + ecc_delay , ShmemPerf::NUCA_ECC);
 
    return queue_delay + m_data_access_time.getLatency();
 }

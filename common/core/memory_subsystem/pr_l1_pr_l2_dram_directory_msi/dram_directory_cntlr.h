@@ -10,6 +10,7 @@
 #include "mem_component.h"
 #include "memory_manager_base.h"
 #include "coherency_protocol.h"
+#include "cache_cntlr.h"
 
 class NucaCache;
 
@@ -21,6 +22,7 @@ namespace PrL1PrL2DramDirectoryMSI
          // Functional Models
          MemoryManagerBase* m_memory_manager;
          AddressHomeLookup* m_dram_controller_home_lookup;
+         AddressHomeLookup* m_tag_directory_home_lookup;	// ABM
          DramDirectoryCache* m_dram_directory_cache;
          ReqQueueList* m_dram_directory_req_queue_list;
 
@@ -35,6 +37,8 @@ namespace PrL1PrL2DramDirectoryMSI
 
          UInt64 evict[DirectoryState::NUM_DIRECTORY_STATES];
          UInt64 forward, forward_failed;
+
+         SubsecondTime m_ecc_latency;  // ABM
 
          UInt32 getCacheBlockSize() { return m_cache_block_size; }
          MemoryManagerBase* getMemoryManager() { return m_memory_manager; }
@@ -71,6 +75,7 @@ namespace PrL1PrL2DramDirectoryMSI
          DramDirectoryCntlr(core_id_t core_id,
                MemoryManagerBase* memory_manager,
                AddressHomeLookup* dram_controller_home_lookup,
+			   AddressHomeLookup* tag_directory_home_lookup,	// ABM
                NucaCache* nuca_cache,
                UInt32 dram_directory_total_entries,
                UInt32 dram_directory_associativity,

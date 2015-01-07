@@ -56,6 +56,17 @@ Cache::Cache(
 		   dumpCacheStatus(name, core_id);
 	   }
    }
+
+   // ABM: CoDEC project
+   if (Sim()->getCfg()->getBool("codec/enabled"))
+   {
+	   if(name == "nuca-cache")
+	   {
+		   printf("[SNIPER] Initializing CoDEC for nuca cache bank of core %d.\n", core_id); fflush(stdout);
+		   // ABM: NUCA bank initialization
+	   }
+   }
+
 }
 
 Cache::~Cache()

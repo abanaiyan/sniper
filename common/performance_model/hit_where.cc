@@ -14,6 +14,8 @@ const char * HitWhereString(HitWhere::where_t where) {
       case HitWhere::L4_SIBLING:      return "L4_S";
       case HitWhere::MISS:            return "miss";
       case HitWhere::NUCA_CACHE:      return "nuca-cache";
+      case HitWhere::NUCA_LOCAL:      return "nuca-local";  // ABM
+      case HitWhere::NUCA_REMOTE:     return "nuca-remote"; // ABM
       case HitWhere::DRAM_CACHE:      return "dram-cache";
       case HitWhere::DRAM:            return "dram";
       case HitWhere::DRAM_LOCAL:      return "dram-local";

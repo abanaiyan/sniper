@@ -21,6 +21,7 @@ class ShmemPerf
          NUCA_QUEUE,
          NUCA_BUS,
          NUCA_DATA,
+         NUCA_ECC,	// ABM
          DRAM_CACHE,
          DRAM_CACHE_TAGS,
          DRAM_CACHE_QUEUE,

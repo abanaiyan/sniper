@@ -34,6 +34,7 @@ char DStateString(DirectoryState::dstate_t state) {
 DramDirectoryCntlr::DramDirectoryCntlr(core_id_t core_id,
       MemoryManagerBase* memory_manager,
       AddressHomeLookup* dram_controller_home_lookup,
+	  AddressHomeLookup* tag_directory_home_lookup,		// ABM
       NucaCache* nuca_cache,
       UInt32 dram_directory_total_entries,
       UInt32 dram_directory_associativity,
@@ -45,6 +46,7 @@ DramDirectoryCntlr::DramDirectoryCntlr(core_id_t core_id,
       ShmemPerfModel* shmem_perf_model):
    m_memory_manager(memory_manager),
    m_dram_controller_home_lookup(dram_controller_home_lookup),
+   m_tag_directory_home_lookup(tag_directory_home_lookup),
    m_nuca_cache(nuca_cache),
    m_core_id(core_id),
    m_cache_block_size(cache_block_size),
@@ -91,6 +93,10 @@ DramDirectoryCntlr::DramDirectoryCntlr(core_id_t core_id,
    {
       LOG_PRINT_ERROR("Invalid coherency protocol %s, must be msi, mesi or mesif", protocol.c_str());
    }
+
+   // ABM
+   UInt32 ns_delay = Sim()->getCfg()->getInt("codec/ecc_delay");
+   m_ecc_latency = m_ecc_latency.NS(ns_delay);
 }
 
 DramDirectoryCntlr::~DramDirectoryCntlr()
@@ -646,13 +652,33 @@ DramDirectoryCntlr::retrieveDataAndSendToL2Cache(ShmemMsg::msg_t reply_msg_type,
 
          if (hit_where != HitWhere::MISS)
          {
-            getMemoryManager()->sendMsg(reply_msg_type,
+        	 if (Sim()->getCfg()->getBool("codec/enabled")){		// ABM
+            	 if (Sim()->getCfg()->getBool("codec/codec")){
+					 if (receiver == m_tag_directory_home_lookup->getHome(address)){
+						hit_where = HitWhere::NUCA_LOCAL;
+						getShmemPerfModel()->incrElapsedTime(m_ecc_latency, ShmemPerfModel::_SIM_THREAD);
+					 }
+					 else{
+						hit_where = HitWhere::NUCA_REMOTE;
+					 }
+            	 }
+            	 else{
+    				hit_where = HitWhere::NUCA_CACHE;
+					getShmemPerfModel()->incrElapsedTime(m_ecc_latency, ShmemPerfModel::_SIM_THREAD);
+            	 }
+			 }
+             else{
+				 hit_where = HitWhere::NUCA_CACHE;
+             } // ABM
+
+        	 getMemoryManager()->sendMsg(reply_msg_type,
                   MemComponent::TAG_DIR, MemComponent::L2_CACHE,
                   receiver /* requester */,
                   receiver /* receiver */,
                   address,
                   nuca_data_buf, getCacheBlockSize(),
-                  HitWhere::NUCA_CACHE,
+                  //HitWhere::NUCA_CACHE, // ABM
+				  hit_where,  // ABM
                   orig_shmem_msg->getPerf(),
                   ShmemPerfModel::_SIM_THREAD);
 
@@ -1224,6 +1250,10 @@ DramDirectoryCntlr::sendDataToNUCA(IntPtr address, core_id_t requester, Byte* da
                NULL,
                ShmemPerfModel::_SIM_THREAD);
       }
+      else		// ABM
+    	  if (Sim()->getCfg()->getBool("codec/enabled"))		// ABM
+    		  getShmemPerfModel()->incrElapsedTime(m_ecc_latency, ShmemPerfModel::_SIM_THREAD);
+
    }
    MYLOG("End");
 }
