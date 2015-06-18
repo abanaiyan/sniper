@@ -13,6 +13,16 @@
 #include "config.h"
 #include "config.hpp"
 
+// ABM
+#if 1
+   extern Lock iolock;
+#  define MYLOG(...) { ScopedLock l(iolock); fflush(stdout); printf(__VA_ARGS__); printf("\n"); fflush(stdout); }
+#  define DUMPDATA(data_buf, data_length) { for(UInt32 i = 0; i < data_length; ++i) fprintf(stderr, "%02x ", data_buf[i]); }
+#else
+#  define MYLOG(...) {}
+#endif
+
+
 CacheSet::CacheSet(CacheBase::cache_t cache_type,
       UInt32 associativity, UInt32 blocksize):
       m_associativity(associativity), m_blocksize(blocksize)
@@ -23,7 +33,11 @@ CacheSet::CacheSet(CacheBase::cache_t cache_type,
       m_cache_block_info_array[i] = CacheBlockInfo::create(cache_type);
    }
 
-   if (Sim()->getFaultinjectionManager())
+   bool ws_enable = Sim()->getCfg()->getBool("write_skip/enabled"); // ABM
+   //if(ws_enable)
+	//   MYLOG("[ABBAS]  %d", cache_type);
+
+   if (Sim()->getFaultinjectionManager() || ws_enable) // ABM
    {
       m_blocks = new char[m_associativity * m_blocksize];
       memset(m_blocks, 0x00, m_associativity * m_blocksize);

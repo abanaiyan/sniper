@@ -4,6 +4,16 @@
 #include "stats.h"
 #include "config.hpp"
 
+// ABM
+#if 1
+   extern Lock iolock;
+#  define MYLOG(...) { ScopedLock l(iolock); fflush(stdout); printf(__VA_ARGS__); printf("\n"); fflush(stdout); }
+#  define DUMPDATA(data_buf, data_length) { for(UInt32 i = 0; i < data_length; ++i) printf("%02x ", data_buf[i]); printf("\n");}
+#else
+#  define MYLOG(...) {}
+#endif
+
+
 // Cache class
 // constructors/destructors
 Cache::Cache(
@@ -41,19 +51,27 @@ Cache::Cache(
 
 
    m_random = rng_seed(Timer::now()); 	// ABM
-   m_num_faults = 0; 		// ABM
-   // ABM
+   m_num_faults = 0; 					// ABM
+   static UInt64 total_faults;			// ABM
+
+   // ABM: RELAN project
    if (Sim()->getCfg()->getBool("fault_generation/enabled"))
    {
 	   if(name == Sim()->getCfg()->getString("fault_generation/cache_type"))
 	   {
-		   printf("[SNIPER] Enabling fault generation for %s cache of core %d.\n", name.c_str(), core_id); fflush(stdout);
+		   //printf("[SNIPER] Enabling fault generation for %s cache of core %d.\n", name.c_str(), core_id); fflush(stdout);
 		   // ABM: Fault map should be generated here
-		   generateFaultMaps();
+		   m_num_faults = generateFaultMaps();
+
 		   // ABM : Disable blocks that have more than AFB bits in current VDD.
-		   inspectFaultyCache();
+		   m_disbld_blks = inspectFaultyCache(total_faults);
+
+		   total_faults += m_num_faults;
+
 		   // ABM : Let's dump the cache fault status
 		   dumpCacheStatus(name, core_id);
+
+	       printf("[SNIPER] %ld faults, %ld disbld, %ld total faults.\n", m_num_faults, m_disbld_blks, total_faults); fflush(stdout);
 	   }
    }
 
@@ -65,6 +83,13 @@ Cache::Cache(
 		   printf("[SNIPER] Initializing CoDEC for nuca cache bank of core %d.\n", core_id); fflush(stdout);
 		   // ABM: NUCA bank initialization
 	   }
+   }
+
+   // ABM: Write_Skip
+   if (Sim()->getCfg()->getBool("write_skip/enabled"))
+   {
+	//  MYLOG("[ABBAS]  %s", name.c_str());
+	//  fprintf(stderr, "[ABBAS] %s \n", name.c_str());
    }
 
 }
@@ -130,6 +155,8 @@ Cache::accessSingleLine(IntPtr addr, access_t access_type,
    if (cache_block_info == NULL)
       return NULL;
 
+   bool ws_enable = Sim()->getCfg()->getBool("write_skip/enabled"); // ABM
+
    if (access_type == LOAD)
    {
       // NOTE: assumes error occurs in memory. If we want to model bus errors, insert the error into buff instead
@@ -141,6 +168,12 @@ Cache::accessSingleLine(IntPtr addr, access_t access_type,
    else
    {
       set->write_line(line_index, block_offset, buff, bytes, update_replacement);
+
+      if(ws_enable){
+   	     //MYLOG("[ABBAS]  %l  %d", &addr, line_index);
+   	     if (buff != NULL)
+   	    	 DUMPDATA(buff, bytes);
+      }
 
       // NOTE: assumes error occurs in memory. If we want to model bus errors, insert the error into buff instead
       if (m_fault_injector)
@@ -217,14 +250,16 @@ Cache::updateHits(Core::mem_op_t mem_op_type, UInt64 hits)
 }
 
 // ABM: Fault map should be generated here
-void
+UInt64
 Cache::generateFaultMaps()
 {
 	CacheBlockInfo* blk_info;
 	UInt64 bit_error_rate;
+	UInt64 num_faulty_blks;
 	bool tmp_Faulty;
 
 	bit_error_rate = Sim()->getCfg()->getInt("fault_generation/bit_error_rate");
+    num_faulty_blks = 0;
 
 	for (UInt32 i = 0; i < m_num_sets; i++)
 	{
@@ -243,19 +278,31 @@ Cache::generateFaultMaps()
 		       }
 		    }
 		    blk_info->m_faulty = tmp_Faulty;
+		    if(tmp_Faulty)
+		    	num_faulty_blks++;
 		}
 	}
 
+	return num_faulty_blks;
 }
 
 // ABM: Disable blocks that have more than AFB bits in current VDD.
-void
-Cache::inspectFaultyCache()
+UInt64
+Cache::inspectFaultyCache(UInt64 total_faults)
 {
 	CacheBlockInfo* blk_info;
-	UInt64 tmp_num_faults;
+	UInt64 num_disbld_blks, tmp_num_faults;
+	UInt64 redundancy_prcnt;
+	String red_policy;
+	UInt32 core_count;
 
-	tmp_num_faults = 0;
+	redundancy_prcnt = Sim()->getCfg()->getInt("fault_generation/redundancy");
+	red_policy = Sim()->getCfg()->getString("fault_generation/policy");
+	core_count = Sim()->getConfig()->getApplicationCores();
+
+	m_redund_rows = (redundancy_prcnt * m_num_sets) / 100;
+	tmp_num_faults  = 0;
+	num_disbld_blks = 0;
 
 	for (UInt32 i = 0; i < m_num_sets; i++)
 	{
@@ -263,15 +310,28 @@ Cache::inspectFaultyCache()
 		{
 			blk_info = m_sets[i]->peekBlock(j);
 			if (blk_info->m_faulty){
-				// We need to make a faulty block disabled, if number of faulty blocks is higher than available redundancy.
-				// if (tmp_num_faults > m_redundancy)
-				blk_info->setDisabled();
-				//blk_info->invalidate();
 				tmp_num_faults++;
+				// We need to make a faulty block disabled, if number of faulty blocks is higher than available redundancy.
+				if(red_policy == "local"){ // use just local redundancy of each bank
+					if (tmp_num_faults > m_redund_rows*m_associativity){
+						blk_info->setDisabled();
+						//blk_info->invalidate();
+						num_disbld_blks++;
+					}
+				}
+				else if(red_policy == "global"){ //
+					if ((total_faults+tmp_num_faults) > core_count*m_redund_rows*m_associativity){
+						blk_info->setDisabled();
+						num_disbld_blks++;
+					}
+				}
+				else if(red_policy == "optimal"){ //
+
+				}
 			}
 		}
 	}
-	m_num_faults = tmp_num_faults;
+	return num_disbld_blks;
 }
 
 // ABM: Let's dump the cache fault status
@@ -295,5 +355,5 @@ Cache::dumpCacheStatus(String name, core_id_t core_id)
 		}
 	}
 
-	printf("[SNIPER] %ld disabled blocks set for this cache.\n", disabld_blk); fflush(stdout);
+	//printf("[SNIPER] %ld disabled blocks out of %d sets for this cache.\n", disabld_blk, m_num_sets); fflush(stdout);
 }

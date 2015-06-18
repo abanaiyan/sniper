@@ -34,6 +34,10 @@ NucaCache::NucaCache(MemoryManagerBase* memory_manager, ShmemPerfModel* shmem_pe
       home_lookup
    );
 
+   // ABM:test
+   //m_nuca_bank_faults = m_cache->get_num_faults();
+   //m_total_faults += m_nuca_bank_faults;
+
    if (Sim()->getCfg()->getBool("perf_model/nuca/queue_model/enabled"))
    {
       String queue_model_type = Sim()->getCfg()->getString("perf_model/nuca/queue_model/type");

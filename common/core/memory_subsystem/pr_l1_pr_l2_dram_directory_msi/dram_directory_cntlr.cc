@@ -95,7 +95,9 @@ DramDirectoryCntlr::DramDirectoryCntlr(core_id_t core_id,
    }
 
    // ABM
-   UInt32 ns_delay = Sim()->getCfg()->getInt("codec/ecc_delay");
+   UInt32 ns_delay = 0;
+   if (Sim()->getCfg()->getBool("codec/enabled"))
+	   ns_delay = Sim()->getCfg()->getInt("codec/ecc_delay");
    m_ecc_latency = m_ecc_latency.NS(ns_delay);
 }
 
@@ -656,7 +658,7 @@ DramDirectoryCntlr::retrieveDataAndSendToL2Cache(ShmemMsg::msg_t reply_msg_type,
             	 if (Sim()->getCfg()->getBool("codec/codec")){
 					 if (receiver == m_tag_directory_home_lookup->getHome(address)){
 						hit_where = HitWhere::NUCA_LOCAL;
-						getShmemPerfModel()->incrElapsedTime(m_ecc_latency, ShmemPerfModel::_SIM_THREAD);
+						getShmemPerfModel()->incrElapsedTime(m_ecc_latency << 1, ShmemPerfModel::_SIM_THREAD);
 					 }
 					 else{
 						hit_where = HitWhere::NUCA_REMOTE;
@@ -1252,7 +1254,7 @@ DramDirectoryCntlr::sendDataToNUCA(IntPtr address, core_id_t requester, Byte* da
       }
       else		// ABM
     	  if (Sim()->getCfg()->getBool("codec/enabled"))		// ABM
-    		  getShmemPerfModel()->incrElapsedTime(m_ecc_latency, ShmemPerfModel::_SIM_THREAD);
+    		  getShmemPerfModel()->incrElapsedTime(m_ecc_latency<<1, ShmemPerfModel::_SIM_THREAD);
 
    }
    MYLOG("End");

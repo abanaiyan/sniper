@@ -71,11 +71,15 @@ class Cache : public CacheBase
       void enable() { m_enabled = true; }
       void disable() { m_enabled = false; }
 
-      UInt64 m_random; 		// ABM : random seed
-      UInt64 m_num_faults;  //ABM
-      void generateFaultMaps();  //ABM
-      void inspectFaultyCache(); //ABM
-      void dumpCacheStatus(String name, core_id_t core_id);    //ABM
+      UInt64 m_random; 				// ABM : random seed
+      UInt64 m_num_faults;  		// ABM
+      UInt64 m_disbld_blks;  		// ABM
+      UInt64 m_redund_rows;			// ABM
+
+      UInt64 generateFaultMaps();  	// ABM
+      UInt64 inspectFaultyCache(UInt64 total_faults); 			// ABM
+      void dumpCacheStatus(String name, core_id_t core_id);    	// ABM
+      UInt64 getNumfaults() { return m_num_faults; } 			// ABM
 };
 
 template <class T>
